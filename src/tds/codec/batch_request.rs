@@ -45,3 +45,25 @@ impl<'a> Encode<BytesMut> for BatchRequest<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod notification_tests {
+    use super::*;
+    #[test]
+    fn batch_total_length_includes_notification_and_preserves_sql() {
+        let mut plain = BytesMut::new();
+        BatchRequest::new("SELECT 1", [0; 8])
+            .encode(&mut plain)
+            .unwrap();
+        let mut notified = BytesMut::new();
+        let notification = crate::QueryNotification::new("A", "B", 60).unwrap();
+        BatchRequest::new("SELECT 1", [0; 8])
+            .with_notification(notification)
+            .encode(&mut notified)
+            .unwrap();
+        assert_eq!(u32::from_le_bytes(plain[..4].try_into().unwrap()), 22);
+        assert_eq!(u32::from_le_bytes(notified[..4].try_into().unwrap()), 40);
+        assert_eq!(&plain[4..22], &notified[4..22]);
+        assert_eq!(&plain[22..], &notified[40..]);
+    }
+}

@@ -142,3 +142,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Security
 
 If you have a security issue to report, please contact us at [security@prisma.io](mailto:security@prisma.io?subject=[GitHub]%20Prisma%202%20Security%20Report%20Tiberius)
+
+## Native query notifications
+
+`QueryNotification::new(id, options, timeout_seconds)` and
+`Client::simple_query_with_notification` attach a per-batch TDS query notification
+header. SQL Server delivers one-shot invalidation messages to the Broker service
+specified in the options (for example `service=Changes;local database=Example`).
+The caller owns queue/service provisioning, required SET options and permissions,
+receiving messages, expiry/invalid-registration handling, and re-registration.
+This API does not create database objects or provide row-change payloads.
+
+The wire fields use UTF-16 byte lengths, and SQL Server interprets the timeout
+value in seconds (as its SqlClient API does). SQL Server expiry delivery may be
+coarser than the requested timeout. The SQL batch is trusted application text;
+never interpolate user input. Fully consume the returned result stream.
