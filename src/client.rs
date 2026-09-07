@@ -251,6 +251,36 @@ impl<S: AsyncRead + AsyncWrite + Unpin + Send> Client<S> {
         Ok(result)
     }
 
+    /// Execute a SQL batch with a one-shot Query Notification request.
+    ///
+    /// SQL Server delivers invalidation messages to the externally provisioned
+    /// Service Broker destination. This does not create queues or services, receive
+    /// messages, or automatically renew registrations. The SQL must satisfy SQL
+    /// Server's Query Notification restrictions and must not contain user input.
+    pub async fn simple_query_with_notification<'a, 'b>(
+        &'a mut self,
+        query: impl Into<Cow<'b, str>>,
+        notification: crate::QueryNotification,
+    ) -> crate::Result<QueryStream<'a>>
+    where
+        'a: 'b,
+    {
+        self.connection.flush_stream().await?;
+
+        let req = BatchRequest::new(query, self.connection.context().transaction_descriptor())
+            .with_notification(notification);
+
+        let id = self.connection.context_mut().next_packet_id();
+        self.connection.send(PacketHeader::batch(id), req).await?;
+
+        let ts = TokenStream::new(&mut self.connection);
+
+        let mut result = QueryStream::new(ts.try_unfold());
+        result.forward_to_metadata().await?;
+
+        Ok(result)
+    }
+
     /// Execute a `BULK INSERT` statement, efficiantly storing a large number of
     /// rows to a specified table. Note: make sure the input row follows the same
     /// schema as the table, otherwise calling `send()` will return an error.

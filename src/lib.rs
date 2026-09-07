@@ -257,6 +257,8 @@ pub(crate) extern crate bigdecimal_ as bigdecimal;
 mod macros;
 
 mod client;
+mod query_notification;
+pub use query_notification::QueryNotification;
 mod from_sql;
 mod query;
 mod sql_read_bytes;
